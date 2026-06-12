@@ -1,8 +1,8 @@
-import subprocess
-import json
+import yt_dlp
 from pathlib import Path
 from typing import Optional, Dict
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -28,36 +28,39 @@ class VideoDownloader:
             logger.info(f"Downloading video from {youtube_url}")
             
             # yt-dlp options
+            format_string = self._get_format_string(quality)
+            
             ydl_opts = {
-                'format': self._get_format_string(quality),
+                'format': format_string,
                 'outtmpl': str(self.output_dir / '%(title)s.%(ext)s'),
                 'quiet': False,
                 'no_warnings': False,
-                'extract_audio': quality == "audio",
-                'audio_format': 'mp3' if quality == "audio" else None,
             }
             
-            # Run yt-dlp
-            cmd = ['yt-dlp', youtube_url]
-            for key, value in ydl_opts.items():
-                if value is True:
-                    cmd.append(f'--{key.replace("_", "-")}')
-                elif value and value is not False and value != "False":
-                    cmd.extend([f'--{key.replace("_", "-")}', str(value)])
+            # Add audio extraction for audio quality
+            if quality == "audio":
+                ydl_opts.update({
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192',
+                    }],
+                    'format': 'bestaudio/best',
+                })
             
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                logger.info(f"Successfully downloaded video")
-                return {
-                    "status": "success",
-                    "url": youtube_url,
-                    "output_dir": str(self.output_dir),
-                    "quality": quality
-                }
-            else:
-                logger.error(f"Download failed: {result.stderr}")
-                return None
+            # Download using yt-dlp library
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(youtube_url, download=True)
+                
+            logger.info(f"Successfully downloaded video: {info.get('title')}")
+            return {
+                "status": "success",
+                "url": youtube_url,
+                "title": info.get('title'),
+                "output_dir": str(self.output_dir),
+                "quality": quality,
+                "duration": info.get('duration'),
+            }
                 
         except Exception as e:
             logger.error(f"Error downloading video: {str(e)}")
@@ -68,9 +71,9 @@ class VideoDownloader:
         """Get yt-dlp format string based on quality"""
         formats = {
             "best": "bestvideo+bestaudio/best",
-            "720p": "best[height<=720]",
-            "480p": "best[height<=480]",
-            "360p": "best[height<=360]",
+            "720p": "bestvideo[height<=720]+bestaudio/best",
+            "480p": "bestvideo[height<=480]+bestaudio/best",
+            "360p": "bestvideo[height<=360]+bestaudio/best",
             "audio": "bestaudio/best"
         }
         return formats.get(quality, "best")
@@ -80,21 +83,24 @@ class VideoDownloader:
         try:
             logger.info(f"Extracting metadata from {youtube_url}")
             
-            cmd = ['yt-dlp', '--dump-json', '--no-warnings', youtube_url]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            ydl_opts = {
+                'quiet': False,
+                'no_warnings': False,
+                'skip_download': True,
+            }
             
-            if result.returncode == 0:
-                metadata = json.loads(result.stdout)
-                return {
-                    "title": metadata.get("title"),
-                    "duration": metadata.get("duration"),
-                    "description": metadata.get("description"),
-                    "channel": metadata.get("uploader"),
-                    "upload_date": metadata.get("upload_date"),
-                    "view_count": metadata.get("view_count"),
-                    "thumbnail": metadata.get("thumbnail"),
-                }
-            return None
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                metadata = ydl.extract_info(youtube_url, download=False)
+            
+            return {
+                "title": metadata.get("title"),
+                "duration": metadata.get("duration"),
+                "description": metadata.get("description"),
+                "channel": metadata.get("uploader"),
+                "upload_date": metadata.get("upload_date"),
+                "view_count": metadata.get("view_count"),
+                "thumbnail": metadata.get("thumbnail"),
+            }
         except Exception as e:
             logger.error(f"Error extracting metadata: {str(e)}")
             return None
