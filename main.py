@@ -26,6 +26,7 @@ db = Database()
 downloader = VideoDownloader(config.VIDEO_DOWNLOAD_DIR)
 audio_processor = AudioProcessor(config.AUDIO_EXTRACT_DIR)
 metadata_gen = PunjabiMetadataGenerator()
+uploader = YouTubeUploader()
 
 @click.group()
 def cli():
@@ -50,6 +51,11 @@ def download(url, quality):
             click.echo(f"📝 Video: {metadata['title']}")
             click.echo(f"👤 Channel: {metadata['channel']}")
             click.echo(f"⏱️  Duration: {metadata['duration']}s")
+            
+            # Add to database
+            file_path = config.VIDEO_DOWNLOAD_DIR / f"{metadata['title']}.webm"
+            db.add_video(url, metadata['title'], metadata['description'] or '', 
+                        metadata['channel'], metadata['duration'] or 0, str(file_path))
     else:
         click.echo("❌ Failed to download video")
 
@@ -94,6 +100,35 @@ def extract_audio(video_file, format):
         click.echo("❌ Failed to extract audio")
 
 @cli.command()
+@click.option('--file', prompt='Video file', help='Path to video file to upload')
+@click.option('--title', prompt='Video title', help='Title in Punjabi')
+@click.option('--description', prompt='Description', help='Video description')
+@click.option('--tags', default='ਪੰਜਾਬੀ,ਯੂਟਿਊਬ,ਵਾਇਰਲ', help='Comma-separated tags')
+@click.option('--privacy', default='private', help='private, unlisted, or public')
+def upload(file, title, description, tags, privacy):
+    """Upload video to YouTube"""
+    click.echo(f"📤 Uploading video: {file}")
+    
+    metadata = {
+        'title': title,
+        'description': description,
+        'hashtags': [tag.strip() for tag in tags.split(',')],
+        'language': 'pa',
+        'category_id': '22',
+    }
+    
+    video_id = uploader.upload_video(file, metadata, privacy)
+    if video_id:
+        click.echo(f"✅ Video uploaded successfully!")
+        click.echo(f"🎬 Video ID: {video_id}")
+        click.echo(f"📺 Watch: https://www.youtube.com/watch?v={video_id}")
+        
+        # Add to database
+        db.add_upload(1, video_id, title, description, metadata['hashtags'])
+    else:
+        click.echo("❌ Failed to upload video")
+
+@cli.command()
 def list_videos():
     """List downloaded videos"""
     click.echo("📋 Downloaded Videos:")
@@ -114,7 +149,6 @@ def list_uploads():
     """List uploaded videos"""
     click.echo("🎥 Uploaded Videos:")
     
-    # This would query analytics from YouTube API
     import sqlite3
     db_path = "videos.db"
     db_conn = sqlite3.connect(db_path)
@@ -133,6 +167,32 @@ def list_uploads():
         click.echo(f"\n📹 {upload['punjabi_title']}")
         click.echo(f"   YouTube ID: {upload['youtube_video_id']}")
         click.echo(f"   Status: {upload['upload_status']}")
+
+@cli.command()
+def channel_info():
+    """Get your YouTube channel information"""
+    click.echo("📺 Your Channel Information:")
+    
+    info = uploader.get_channel_info()
+    if info:
+        click.echo(f"\n✅ Channel: {info['title']}")
+        click.echo(f"📊 Subscribers: {info['subscribers']}")
+        click.echo(f"👁️  Total Views: {info['views']}")
+        click.echo(f"🎬 Total Videos: {info['videos']}")
+    else:
+        click.echo("❌ Could not fetch channel information")
+
+@cli.command()
+def dashboard():
+    """Start web dashboard"""
+    click.echo("🚀 Starting dashboard...")
+    click.echo("📺 Open: http://localhost:5000")
+    
+    try:
+        from dashboard import app
+        app.run(debug=True, port=5000)
+    except ImportError:
+        click.echo("❌ Flask not installed. Run: pip install flask")
 
 @cli.command()
 def setup():

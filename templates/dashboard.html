@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reaction Channel Automation Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-card.revenue {
+            border-left: 4px solid #10b981;
+        }
+
+        .stat-card.revenue .stat-value {
+            color: #10b981;
+        }
+
+        .stat-card.videos {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .stat-card.videos .stat-value {
+            color: #3b82f6;
+        }
+
+        .content-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f3f4f6;
+            padding: 12px;
+            text-align: left;
+            color: #374151;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            td, th {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Reaction Channel Automation Dashboard</h1>
+            <p class="subtitle">Track your videos, uploads, and earnings</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card videos">
+                <h3>📹 Total Videos</h3>
+                <div class="stat-value" id="total-videos">0</div>
+            </div>
+            <div class="stat-card videos">
+                <h3>✅ Downloaded</h3>
+                <div class="stat-value" id="downloaded-videos">0</div>
+            </div>
+            <div class="stat-card videos">
+                <h3>⬆️ Uploaded</h3>
+                <div class="stat-value" id="uploaded-videos">0</div>
+            </div>
+            <div class="stat-card revenue">
+                <h3>💰 Total Revenue</h3>
+                <div class="stat-value" id="total-revenue">$0.00</div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Recent Uploads</h2>
+            <button class="refresh-btn" onclick="loadUploads()">🔄 Refresh</button>
+            <div id="uploads-container">
+                <div class="loading">Loading uploads...</div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Downloaded Videos</h2>
+            <button class="refresh-btn" onclick="loadVideos()">🔄 Refresh</button>
+            <div id="videos-container">
+                <div class="loading">Loading videos...</div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Punjabi Reaction Channel Automation Toolkit v1.0.0</p>
+            <p>Made with ❤️ to help you build your channel</p>
+        </footer>
+    </div>
+
+    <script>
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('total-videos').textContent = stats.total_videos;
+                document.getElementById('downloaded-videos').textContent = stats.downloaded;
+                document.getElementById('uploaded-videos').textContent = stats.uploaded;
+                
+                const revenueResponse = await fetch('/api/revenue');
+                const revenue = await revenueResponse.json();
+                document.getElementById('total-revenue').textContent = `$${revenue.total_revenue.toFixed(2)}`;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadUploads() {
+            try {
+                const response = await fetch('/api/uploads');
+                const uploads = await response.json();
+                
+                if (!uploads || uploads.length === 0) {
+                    document.getElementById('uploads-container').innerHTML = '<div class="empty-state">No uploads yet. Upload your first video!</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Title</th><th>Status</th><th>Views</th><th>Revenue</th><th>Uploaded</th></tr></thead><tbody>';
+                
+                uploads.forEach(upload => {
+                    const status = upload.upload_status === 'uploaded' ? 'badge-success' : 'badge-pending';
+                    const date = new Date(upload.uploaded_at).toLocaleDateString();
+                    
+                    html += `
+                        <tr>
+                            <td>${upload.punjabi_title.substring(0, 50)}...</td>
+                            <td><span class="badge ${status}">${upload.upload_status}</span></td>
+                            <td>${upload.views.toLocaleString()}</td>
+                            <td>$${upload.revenue.toFixed(2)}</td>
+                            <td>${date}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                document.getElementById('uploads-container').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading uploads:', error);
+                document.getElementById('uploads-container').innerHTML = '<div class="error">Error loading uploads</div>';
+            }
+        }
+
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/videos');
+                const videos = await response.json();
+                
+                if (!videos || videos.length === 0) {
+                    document.getElementById('videos-container').innerHTML = '<div class="empty-state">No videos downloaded yet.</div>';
+                    return;
+                }
+
+                let html = '<table><thead><tr><th>Title</th><th>Channel</th><th>Duration</th><th>Status</th><th>Downloaded</th></tr></thead><tbody>';
+                
+                videos.slice(0, 20).forEach(video => {
+                    const status = video.status === 'downloaded' ? 'badge-success' : 'badge-pending';
+                    const date = new Date(video.created_at).toLocaleDateString();
+                    const mins = Math.floor(video.duration / 60);
+                    
+                    html += `
+                        <tr>
+                            <td>${video.title.substring(0, 40)}...</td>
+                            <td>${video.channel}</td>
+                            <td>${mins}m</td>
+                            <td><span class="badge ${status}">${video.status}</span></td>
+                            <td>${date}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                document.getElementById('videos-container').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading videos:', error);
+                document.getElementById('videos-container').innerHTML = '<div class="error">Error loading videos</div>';
+            }
+        }
+
+        // Load data on page load and every 30 seconds
+        window.addEventListener('load', () => {
+            loadStats();
+            loadUploads();
+            loadVideos();
+            
+            setInterval(() => {
+                loadStats();
+                loadUploads();
+                loadVideos();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>
